@@ -1,5 +1,5 @@
-import pygame
 import heapq
+import pygame
 
 # Configuración de la cuadrícula
 WIDTH, HEIGHT = 500, 580  # Espacio extra para la leyenda
@@ -19,7 +19,7 @@ DARK_GRAY = (50, 50, 50)  # Fondo de la leyenda
 # Inicializar Pygame
 pygame.init()
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("A* Pathfinding Visualization")
+pygame.display.set_caption("A*")
 font = pygame.font.Font(None, 18)
 
 # Variables para modo de edición
@@ -35,7 +35,7 @@ def draw_legend():
         ("A", GREEN, "Poner inicio"),
         ("D", RED, "Poner destino"),
         ("S", BLACK, "Poner obstáculo"),
-        ("W", BLUE, "Poner waypoint")
+        ("W", BLUE, "Poner penalización")
     ]
 
     legend_items_right = [
@@ -172,7 +172,7 @@ while running:
                 elif placing_mode == "obstacle":
                     node.color = BLACK
 
-                elif placing_mode == "waypoint":
+                elif placing_mode == "penalty":
                     node.color = BLUE
                     node.penalty = 5  # Penalización extra
         
@@ -196,7 +196,7 @@ while running:
             elif event.key == pygame.K_s:
                 placing_mode = "obstacle"
             elif event.key == pygame.K_w:
-                placing_mode = "waypoint"
+                placing_mode = "penalty"
             elif event.key == pygame.K_r:
                 reset_grid()  # Reiniciar cuadrícula
             elif event.key == pygame.K_SPACE and start and end:
