@@ -1,71 +1,80 @@
-import math
+import tkinter as tk
+from tkinter import ttk
 import pandas as pd
+import math
 
 # Leer los nombres de las columnas desde AtributosJuego.txt
 atributos = []
 with open("AtributosJuego.txt") as file:
-    atributos = file.read().strip().split(',')  # Nos aseguramos de eliminar espacios
+    atributos = file.read().strip().split(',')
 
 # Cargar los datos de Juego.txt con los nombres de las columnas de AtributosJuego.txt
 data = pd.read_csv("Juego.txt", header=None, names=atributos)
+data.columns = data.columns.str.strip()
+data = data.apply(lambda x: x.str.strip() if x.dtype == "object" else x)
 
-# Limpiar espacios adicionales en las columnas y las filas
-data.columns = data.columns.str.strip()  # Eliminar espacios de los nombres de las columnas
-data = data.apply(lambda x: x.str.strip() if x.dtype == "object" else x)  # Eliminar espacios de los valores
-
-# Verificar las primeras filas del DataFrame
-print(data)
-
-# Función para calcular la entropía de un conjunto de datos
 def calcular_entropia(data):
     valores = data.value_counts(normalize=True)
-    entropia = -sum(valores * valores.apply(lambda x: math.log2(x) if x > 0 else 0))
-    return entropia
+    return -sum(valores * valores.apply(lambda x: math.log2(x) if x > 0 else 0))
 
-# Función para calcular la ganancia de información
 def ganancia_informacion(data, atributo):
-    # Entropía original del conjunto de datos
     entropia_original = calcular_entropia(data['Jugar'])
-    
-    # Dividir los datos por los valores del atributo
     valores_atributo = data[atributo].unique()
-    entropia_condicional = 0
-    for valor in valores_atributo:
-        subset = data[data[atributo] == valor]
-        probabilidad = len(subset) / len(data)
-        entropia_condicional += probabilidad * calcular_entropia(subset['Jugar'])
-    
+    entropia_condicional = sum(
+        (len(data[data[atributo] == valor]) / len(data)) * calcular_entropia(data[data[atributo] == valor]['Jugar'])
+        for valor in valores_atributo
+    )
     return entropia_original - entropia_condicional
 
-# Función recursiva para construir el árbol de decisión
 def id3(data, atributos):
-    # Si todos los ejemplos tienen la misma clase, devolver esa clase
     if len(data['Jugar'].unique()) == 1:
         return data['Jugar'].iloc[0]
-    
-    # Si no hay más atributos para dividir, devolver la clase más frecuente
-    if len(atributos) == 0:
+    if not atributos:
         return data['Jugar'].mode()[0]
-    
-    # Calcular la ganancia de información para cada atributo
-    ganancias = {atributo: ganancia_informacion(data, atributo) for atributo in atributos}
-    
-    # Elegir el atributo con la mayor ganancia de información
-    mejor_atributo = max(ganancias, key=ganancias.get)
-    
-    # Crear un nodo para el árbol con el mejor atributo
+    mejor_atributo = max(atributos, key=lambda attr: ganancia_informacion(data, attr))
     arbol = {mejor_atributo: {}}
-    
-    # Eliminar el mejor atributo de la lista de atributos
-    atributos_restantes = [atributo for atributo in atributos if atributo != mejor_atributo]
-    
-    # Recursivamente dividir los datos para cada valor del mejor atributo
     for valor in data[mejor_atributo].unique():
         subset = data[data[mejor_atributo] == valor]
-        arbol[mejor_atributo][valor] = id3(subset, atributos_restantes)
-    
+        arbol[mejor_atributo][valor] = id3(subset, [a for a in atributos if a != mejor_atributo])
     return arbol
 
-# Ejecutar ID3
-arbol_decision = id3(data, atributos[:-1])  # Excluimos el atributo 'Jugar'
-print(arbol_decision)
+def predecir(arbol, valores):
+    if not isinstance(arbol, dict):
+        return arbol
+    atributo = next(iter(arbol))
+    valor = valores.get(atributo, None)
+    return predecir(arbol[atributo].get(valor, 'Desconocido'), valores)
+
+arbol_decision = id3(data, atributos[:-1])
+
+# Crear la interfaz gráfica
+root = tk.Tk()
+root.title("Clasificador ID3")
+root.geometry("500x400")
+root.configure(bg="#f0f0f0")
+
+frame = tk.Frame(root, bg="#f0f0f0")
+frame.pack(pady=20)
+
+tk.Label(frame, text="Seleccione los atributos", font=("Arial", 14), bg="#f0f0f0").grid(row=0, column=0, columnspan=2, pady=10)
+
+valores_usuario = {}
+
+for i, atributo in enumerate(atributos[:-1]):
+    tk.Label(frame, text=atributo + ":", font=("Arial", 12), bg="#f0f0f0").grid(row=i + 1, column=0, padx=10, pady=5, sticky="w")
+    valores_usuario[atributo] = tk.StringVar()
+    valores_usuario[atributo].set(data[atributo].unique()[0])
+    menu = ttk.Combobox(frame, textvariable=valores_usuario[atributo], values=list(data[atributo].unique()), state="readonly")
+    menu.grid(row=i + 1, column=1, padx=10, pady=5)
+
+def obtener_resultado():
+    seleccion = {atributo: valores_usuario[atributo].get() for atributo in atributos[:-1]}
+    resultado = predecir(arbol_decision, seleccion)
+    resultado_label.config(text=f"Resultado: {resultado}")
+
+tk.Button(root, text="Predecir", command=obtener_resultado, font=("Arial", 12), bg="#4CAF50", fg="white", padx=10, pady=5).pack(pady=20)
+
+resultado_label = tk.Label(root, text="Resultado:", font=("Arial", 14), bg="#f0f0f0")
+resultado_label.pack()
+
+root.mainloop()
