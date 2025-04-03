@@ -46,6 +46,7 @@ def predecir(arbol, valores):
     return predecir(arbol[atributo].get(valor, 'Desconocido'), valores)
 
 arbol_decision = id3(data, atributos[:-1])
+print(arbol_decision)
 
 # Crear la interfaz gráfica
 root = tk.Tk()
